@@ -14,74 +14,102 @@ const crawler = async () => {
 
     console.log("페이지 스크롤 시작...");
 
-    let previousProductCount = 0;
-    let sameCountTimes = 0;
+    let scrollPosition = 0;
+    const allProducts = new Set();
 
     while (true) {
-      const currentProducts = await page.evaluate(() => {
-        const products = document.querySelectorAll(".grid-2 .weblog");
-        return products.length;
+      const newProducts = await page.evaluate(() => {
+        const items = document.querySelectorAll(".grid-2 .weblog");
+        return Array.from(items).map((item) => {
+          // 링크 추출
+          const linkElement = item.querySelector("a");
+          const href = linkElement ? linkElement.href : "";
+
+          // 이미지 URL 추출
+          const imageDiv = item.querySelector(
+            ".discount-product-unit__product_image"
+          );
+          const imageStyle = imageDiv ? imageDiv.style.backgroundImage : "";
+          const backgroundImageUrl = imageStyle
+            ? imageStyle.match(/url\(['"]?(.*?)['"]?\)/)?.[1]
+            : "";
+
+          const imgTag = imageDiv ? imageDiv.querySelector("img") : null;
+          const imgSrc = imgTag ? imgTag.src : "";
+          const imgDataSrc = imgTag ? imgTag.getAttribute("data-src") : "";
+
+          return {
+            title:
+              item.querySelector(".info_section__title")?.textContent?.trim() ||
+              "",
+            salePoint:
+              item
+                .querySelector(".sale_point_badge__content")
+                ?.textContent?.trim() || "",
+            discountPrice:
+              item
+                .querySelector(".price_info__discount")
+                ?.textContent?.trim() || "",
+            originalPrice:
+              item.querySelector(".price_info__base")?.textContent?.trim() ||
+              "",
+            saleRate:
+              item
+                .querySelector(".sale-progress-bar__rate")
+                ?.textContent?.trim() || "",
+            backgroundImageUrl: backgroundImageUrl || "",
+            imageUrl: imgSrc || imgDataSrc || "",
+            productUrl: href || "", // 상품 링크 추가
+          };
+        });
       });
 
-      console.log(`현재 로드된 상품 수: ${currentProducts}`);
-
-      if (currentProducts === previousProductCount) {
-        sameCountTimes++;
-        if (sameCountTimes >= 3) {
-          console.log("더 이상 새로운 상품이 로드되지 않음");
-          break;
+      newProducts.forEach((product) => {
+        if (product.title) {
+          allProducts.add(JSON.stringify(product));
         }
-      } else {
-        sameCountTimes = 0;
+      });
+
+      console.log(`현재까지 수집된 상품 수: ${allProducts.size}`);
+
+      const isScrollEnd = await page.evaluate((currentPosition) => {
+        const scrollHeight = document.documentElement.scrollHeight;
+        const clientHeight = document.documentElement.clientHeight;
+        return currentPosition + clientHeight >= scrollHeight;
+      }, scrollPosition);
+
+      if (isScrollEnd) {
+        console.log("페이지 끝에 도달했습니다.");
+
+        console.log("\n=== 수집된 모든 상품 정보 ===");
+        console.log(`총 ${allProducts.size}개의 상품이 수집되었습니다.`);
+
+        Array.from(allProducts).forEach((productString, index) => {
+          const product = JSON.parse(productString);
+          console.log(`\n[상품 ${index + 1}]`);
+          console.log("제목:", product.title);
+          console.log("할인율:", product.salePoint);
+          console.log("할인가격:", product.discountPrice);
+          console.log("원래가격:", product.originalPrice);
+          console.log("판매율:", product.saleRate);
+          console.log("배경 이미지 URL:", product.backgroundImageUrl);
+          console.log("상품 이미지 URL:", product.imageUrl);
+          console.log("상품 링크:", product.productUrl); // 상품 링크 출력
+        });
+
+        break;
       }
 
-      previousProductCount = currentProducts;
-
-      await page.evaluate(() => {
+      await page.evaluate((currentPosition) => {
         return new Promise((resolve) => {
-          window.scrollTo(0, document.documentElement.scrollHeight);
-          setTimeout(resolve, 2000); // 데이터 로딩 시간
+          const scrollStep = 1000;
+          window.scrollTo(0, currentPosition + scrollStep);
+          setTimeout(resolve, 100);
         });
-      });
+      }, scrollPosition);
 
-      await page
-        .waitForSelector(".grid-2 .weblog", { timeout: 5000 })
-        .catch(() => {
-          console.log("새로운 상품이 로드되지 않았습니다.");
-        });
+      scrollPosition += 500;
     }
-
-    console.log("모든 상품 로드 완료, 데이터 수집 중...");
-
-    const products = await page.evaluate(() => {
-      const items = document.querySelectorAll(".grid-2 .weblog");
-      return Array.from(items).map((item) => {
-        const link = item.querySelector("a");
-        const name = item.querySelector(".info_section__title");
-        const salePoint = item.querySelector(".sale_point_badge__content");
-        const priceOrigin = item.querySelector(".price_info__base");
-        const priceDiscount = item.querySelector(".price_info__discount");
-
-        return {
-          url: link ? link.href : "",
-          name: name ? name.textContent.trim() : "",
-          salePoint: salePoint ? salePoint.textContent.trim() : "",
-          price: priceDiscount ? priceDiscount.textContent.trim() : "",
-          originalPrice: priceOrigin ? priceOrigin.textContent.trim() : "",
-        };
-      });
-    });
-
-    console.log("\n=== 크롤링 결과 ===");
-    console.log("총 상품 수:", products.length);
-    products.forEach((product, index) => {
-      console.log(`\n[상품 ${index + 1}]`);
-      console.log("상품명:", product.name);
-      console.log("할인정보:", product.salePoint);
-      console.log("가격:", product.price);
-      console.log("원래가격:", product.originalPrice);
-      console.log("URL:", product.url);
-    });
 
     await browser.close();
   } catch (error) {
