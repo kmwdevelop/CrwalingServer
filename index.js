@@ -19,49 +19,71 @@ const crawler = async () => {
 
     while (true) {
       const newProducts = await page.evaluate(() => {
-        const items = document.querySelectorAll(".grid-2 .weblog");
-        return Array.from(items).map((item) => {
-          // 링크 추출
+        // 1. 링크 추출 함수
+        const crawlLink = (item) => {
           const linkElement = item.querySelector("a");
-          const href = linkElement ? linkElement.href : "";
+          return linkElement ? linkElement.href : "";
+        };
 
-          // 이미지 URL 추출
+        // 2. 이미지 추출 함수
+        const crawlImage = (item) => {
           const imageDiv = item.querySelector(
             ".discount-product-unit__product_image"
           );
-          const imageStyle = imageDiv ? imageDiv.style.backgroundImage : "";
-          const backgroundImageUrl = imageStyle
-            ? imageStyle.match(/url\(['"]?(.*?)['"]?\)/)?.[1]
-            : "";
+          return imageDiv ? imageDiv.querySelector("img").src : "";
+        };
 
-          const imgTag = imageDiv ? imageDiv.querySelector("img") : null;
-          const imgSrc = imgTag ? imgTag.src : "";
-          const imgDataSrc = imgTag ? imgTag.getAttribute("data-src") : "";
+        // 3. 제목 추출 함수
+        const crawlTitle = (item) => {
+          const titleElement = item.querySelector(".info_section__title");
+          return titleElement ? titleElement.textContent : "";
+        };
 
+        // 4. 할인율 추출 함수
+        const crawlSalePoint = (item) => {
+          const saleRateElement = item.querySelector(
+            ".sale_point_badge__content"
+          );
+          return saleRateElement ? saleRateElement.textContent : "";
+        };
+
+        // 5. 할인가 추출 함수
+        const crawlDiscountPrice = (item) => {
+          const discountPriceElement = item.querySelector(
+            ".price_info__discount"
+          );
+          return discountPriceElement ? discountPriceElement.textContent : "";
+        };
+
+        // 6. 기존가 추출 함수
+        const crawlOriginalPrice = (item) => {
+          const originalPriceElement = item.querySelector(".price_info__base");
+          return originalPriceElement ? originalPriceElement.textContent : "";
+        };
+
+        // 7. 판매율 추출 함수
+        const crawlSaleRate = (item) => {
+          const saleRateElement = item.querySelector(
+            ".sale-progress-bar__rate"
+          );
+          return saleRateElement ? saleRateElement.textContent : "";
+        };
+
+        const nodeItems = document.querySelectorAll(".grid-2 .weblog");
+        const arrItems = Array.from(nodeItems);
+        const arrObject = arrItems.map((item) => {
           return {
-            title:
-              item.querySelector(".info_section__title")?.textContent?.trim() ||
-              "",
-            salePoint:
-              item
-                .querySelector(".sale_point_badge__content")
-                ?.textContent?.trim() || "",
-            discountPrice:
-              item
-                .querySelector(".price_info__discount")
-                ?.textContent?.trim() || "",
-            originalPrice:
-              item.querySelector(".price_info__base")?.textContent?.trim() ||
-              "",
-            saleRate:
-              item
-                .querySelector(".sale-progress-bar__rate")
-                ?.textContent?.trim() || "",
-            backgroundImageUrl: backgroundImageUrl || "",
-            imageUrl: imgSrc || imgDataSrc || "",
-            productUrl: href || "", // 상품 링크 추가
+            title: crawlTitle(item),
+            salePoint: crawlSalePoint(item),
+            discountPrice: crawlDiscountPrice(item),
+            originalPrice: crawlOriginalPrice(item),
+            saleRate: crawlSaleRate(item),
+            imageUrl: crawlImage(item),
+            productUrl: crawlLink(item), // 상품 링크 추가
           };
         });
+
+        return arrObject;
       });
 
       newProducts.forEach((product) => {
@@ -92,7 +114,6 @@ const crawler = async () => {
           console.log("할인가격:", product.discountPrice);
           console.log("원래가격:", product.originalPrice);
           console.log("판매율:", product.saleRate);
-          console.log("배경 이미지 URL:", product.backgroundImageUrl);
           console.log("상품 이미지 URL:", product.imageUrl);
           console.log("상품 링크:", product.productUrl); // 상품 링크 출력
         });
