@@ -1,6 +1,11 @@
+import express from "express";
 import puppeteer from "puppeteer";
 
-const crawler = async () => {
+const app = express();
+const port = 3000;
+
+// 크롤러 함수 정의
+const crawlGoldbox = async () => {
   try {
     const browser = await puppeteer.launch({ headless: false });
     const page = await browser.newPage();
@@ -102,40 +107,38 @@ const crawler = async () => {
 
       if (isScrollEnd) {
         console.log("페이지 끝에 도달했습니다.");
-
-        console.log("\n=== 수집된 모든 상품 정보 ===");
         console.log(`총 ${allProducts.size}개의 상품이 수집되었습니다.`);
 
-        Array.from(allProducts).forEach((productString, index) => {
-          const product = JSON.parse(productString);
-          console.log(`\n[상품 ${index + 1}]`);
-          console.log("제목:", product.title);
-          console.log("할인율:", product.salePoint);
-          console.log("할인가격:", product.discountPrice);
-          console.log("원래가격:", product.originalPrice);
-          console.log("판매율:", product.saleRate);
-          console.log("상품 이미지 URL:", product.imageUrl);
-          console.log("상품 링크:", product.productUrl); // 상품 링크 출력
-        });
-
-        break;
+        await browser.close();
+        return Array.from(allProducts).map((productString) =>
+          JSON.parse(productString)
+        );
       }
 
       await page.evaluate((currentPosition) => {
         return new Promise((resolve) => {
           const scrollStep = 1000;
           window.scrollTo(0, currentPosition + scrollStep);
-          setTimeout(resolve, 100);
+          setTimeout(resolve, 10);
         });
       }, scrollPosition);
 
       scrollPosition += 500;
     }
-
-    await browser.close();
   } catch (error) {
     console.error("크롤링 중 에러 발생:", error);
+    return [];
   }
 };
 
-crawler();
+// /goldbox API 라우트 설정
+app.get("/goldbox", async (req, res) => {
+  console.log("/goldbox API 호출됨");
+  const products = await crawlGoldbox();
+  res.json(products);
+});
+
+// 서버 실행
+app.listen(port, () => {
+  console.log(`서버가 http://localhost:${port} 에서 실행 중입니다.`);
+});
