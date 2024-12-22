@@ -2,12 +2,26 @@ import express from "express";
 import puppeteer from "puppeteer";
 
 const app = express();
-const port = 3000;
+// const port = 3000;
+const port = process.env.PORT || 8080;
 
 // 크롤러 함수 정의
 const crawlGoldbox = async () => {
   try {
-    const browser = await puppeteer.launch({ headless: false });
+    // const browser = await puppeteer.launch({ headless: false });
+    const browser = await puppeteer.launch({
+      headless: "new",
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--no-zygote",
+        "--single-process",
+        "--disable-audio-output",
+      ],
+    });
+
     const page = await browser.newPage();
 
     await page.setViewport({ width: 1920, height: 1080 });
