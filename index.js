@@ -149,6 +149,7 @@ const crawlGoldbox = async () => {
 app.get("/goldbox", async (req, res) => {
   console.log("/goldbox API 호출됨");
   const products = await crawlGoldbox();
+
   res.json(products);
 });
 
